@@ -44,8 +44,9 @@ def create_or_get_job():
         "memory": "4Gi"
     }
     
-    # Timeout (60 minutes max for Cloud Run Jobs)
-    job.template.template.timeout = "3600s"
+    # Timeout (Cloud Run Jobs max is 24 hours = 86400s)
+    # Set to 4 hours (14400s) - adjust as needed, max is 86400s (24 hours)
+    job.template.template.timeout = "14400s"  # 4 hours
     
     # Max retries
     job.template.template.max_retries = 0
