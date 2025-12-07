@@ -31,21 +31,24 @@ test_name = st.text_input(
 )
 
 # Model selection - Vertex AI models available on GCP
+# Only including currently supported models (retired models return 404 errors)
 models = [
-    "gemini-2.0-flash-exp",
-    "gemini-2.0-flash-thinking-exp",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro-latest",
-    "gemini-1.5-flash-latest"
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-image",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash-lite-preview-09-2025",
+    "gemini-2.0-flash-001",
+    "gemini-2.0-flash-lite-001",
 ]
 model_display_names = {
-    "gemini-2.0-flash-exp": "Gemini 2.0 Flash (Experimental)",
-    "gemini-2.0-flash-thinking-exp": "Gemini 2.0 Flash Thinking (Experimental)",
-    "gemini-1.5-pro": "Gemini 1.5 Pro",
-    "gemini-1.5-flash": "Gemini 1.5 Flash",
-    "gemini-1.5-pro-latest": "Gemini 1.5 Pro (Latest)",
-    "gemini-1.5-flash-latest": "Gemini 1.5 Flash (Latest)"
+    "gemini-2.5-pro": "Gemini 2.5 Pro",
+    "gemini-2.5-flash": "Gemini 2.5 Flash",
+    "gemini-2.5-flash-image": "Gemini 2.5 Flash Image",
+    "gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
+    "gemini-2.5-flash-lite-preview-09-2025": "Gemini 2.5 Flash Lite Preview (Sep 2025)",
+    "gemini-2.0-flash-001": "Gemini 2.0 Flash",
+    "gemini-2.0-flash-lite-001": "Gemini 2.0 Flash Lite",
 }
 selected_model = st.selectbox(
     "Select LLM Model (Vertex AI)",
@@ -104,6 +107,23 @@ st.markdown("---")
 
 # Event Filters
 st.subheader("Event Filters")
+
+# Data availability info
+with st.expander("📊 Dataset Information", expanded=False):
+    st.markdown("""
+    **Total Events:** 26,912
+    
+    **Data Distribution by Year:**
+    - 2025: 17,662 events (65.6%)
+    - 2024: 6,684 events (24.8%)
+    - 2023: 1,389 events (5.2%)
+    - 2022: 632 events (2.3%)
+    - 2021: 521 events (1.9%)
+    - 2020: 24 events (0.1%)
+    
+    **Date Range:** October 2, 2020 to November 29, 2025
+    """)
+
 filter_col1, filter_col2 = st.columns(2)
 
 with filter_col1:
