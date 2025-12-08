@@ -54,7 +54,7 @@ gcloud projects add-iam-policy-binding coms6998llms \
     --role="roles/storage.objectAdmin"
 
 # Upload data to GCS
-gsutil cp markets_data_v3.feather gs://polybench-data/
+gsutil cp markets_final_df.feather gs://polybench-data/
 ```
 
 ### 4. Build and Push Docker Image

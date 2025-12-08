@@ -74,14 +74,18 @@ with st.expander("📋 Available Placeholders", expanded=False):
     - `{outcomes}` - List of possible outcomes (usually ["Yes", "No"])
     
     **Additional Fields:**
-    - `{event_ticker}` - Event identifier
+    - `{event_ticker}` - Event identifier (auto-generated from title)
+    - `{event_title}` - Full event title
     - `{event_startDate}` - When the event starts
     - `{event_endDate}` - When the event resolves
     - `{category}` - Event category (if available)
     - `{event_volume}` - Trading volume
     
-    **⚠️ Use with caution (potential look-ahead bias):**
-    - `{outcomePrices}` - Current market prices/probabilities
+    **Price Fields (new dataset):**
+    - `{Price_Start}` - Price at event start
+    - `{Price_Mid}` - Price at mid-point
+    - `{Price_End}` - Price at event end
+    
     """)
 
 default_prompt = """You are an expert forecaster. Analyze the following prediction market and provide a probability between 0 and 1 for the outcome.
@@ -111,17 +115,16 @@ st.subheader("Event Filters")
 # Data availability info
 with st.expander("📊 Dataset Information", expanded=False):
     st.markdown("""
-    **Total Events:** 26,912
+    **Total Events:** 24,639
     
     **Data Distribution by Year:**
-    - 2025: 17,662 events (65.6%)
-    - 2024: 6,684 events (24.8%)
-    - 2023: 1,389 events (5.2%)
-    - 2022: 632 events (2.3%)
-    - 2021: 521 events (1.9%)
-    - 2020: 24 events (0.1%)
+    - 2025: 16,882 events (68.5%)
+    - 2024: 6,329 events (25.7%)
+    - 2023: 1,342 events (5.4%)
+    - 2022: 34 events (0.1%)
+    - 2021: 52 events (0.2%)
     
-    **Date Range:** October 2, 2020 to November 29, 2025
+    **Date Range:** January 1, 2021 to November 29, 2025
     """)
 
 filter_col1, filter_col2 = st.columns(2)
@@ -145,25 +148,16 @@ with filter_col2:
         value=datetime(2024, 12, 31)
     )
     
-    # Actual categories from the dataset (only 3% of rows have categories)
+    # Categories available in the new dataset
+    # Note: Only ~0.06% of events (15 out of 24,639) have category labels
     available_categories = [
-        "US-current-affairs",
-        "Pop-Culture",
-        "Business",
-        "Coronavirus",
-        "Art",
-        "Ukraine & Russia",
-        "Science",
-        "Global Politics",
-        "Olympics",
-        "Space",
-        "Tech"
+        "US-current-affairs"
     ]
     categories = st.multiselect(
         "Categories (optional)",
         available_categories,
         default=[],
-        help="Note: Only ~3% of events have category labels"
+        help="⚠️ Warning: Only ~0.06% of events have category labels. Filtering by category will exclude almost all events."
     )
 
 # Sample size configuration
@@ -408,14 +402,16 @@ try:
                     
                     # Prediction distribution plot
                     st.markdown("#### Prediction Distribution")
-                    # Create histogram using matplotlib
+                    # Create histogram using matplotlib (compact size)
                     import matplotlib.pyplot as plt
-                    fig, ax = plt.subplots(figsize=(8, 4))
+                    fig, ax = plt.subplots(figsize=(6, 2.5))
                     ax.hist(df['prediction'], bins=20, edgecolor='black', alpha=0.7)
-                    ax.set_xlabel('Prediction Value')
-                    ax.set_ylabel('Frequency')
-                    ax.set_title('Distribution of Predictions')
-                    st.pyplot(fig)
+                    ax.set_xlabel('Prediction Value', fontsize=9)
+                    ax.set_ylabel('Frequency', fontsize=9)
+                    ax.set_title('Distribution of Predictions', fontsize=10)
+                    ax.tick_params(labelsize=8)
+                    plt.tight_layout()
+                    st.pyplot(fig, use_container_width=False)
                     
                     # Accuracy based on cutoff
                     st.markdown("#### Accuracy by Cutoff")
@@ -442,17 +438,19 @@ try:
                     if 'actual_outcome' in df.columns:
                         df_with_outcomes = df[df['actual_outcome'].notna()].copy()
                         if len(df_with_outcomes) > 0:
-                            st.markdown("#### Accuracy")
-                            # For Yes/No outcomes, assume first outcome is "Yes"
-                            # Prediction >= cutoff means predicted "Yes"
+                            st.markdown("#### Accuracy & Brier Score")
+                            # Accuracy calculation using FirstOutcome (actual resolved outcome from new dataset)
+                            # Logic: prediction >= cutoff means we predicted the first outcome will win
+                            #        actual_outcome (FirstOutcome) == first outcome means first outcome won
                             correct = 0
                             total = 0
+                            brier_scores = []  # Store individual Brier scores
                             errors = []
                             import ast
                             for idx, row in df_with_outcomes.iterrows():
                                 try:
                                     outcomes_raw = row.get('outcomes', [])
-                                    actual = row['actual_outcome']
+                                    actual = row['actual_outcome']  # This is FirstOutcome from the new dataset
                                     
                                     # Skip if actual is null/na (avoid pd.isna on arrays - it returns arrays)
                                     if actual is None:
@@ -510,15 +508,27 @@ try:
                                     
                                     # Ensure we have at least 2 outcomes
                                     if len(outcomes) >= 2:
-                                        # Assume first outcome is "Yes"
-                                        predicted_yes = bool(float(row['prediction']) >= cutoff)
-                                        # Compare actual outcome with first outcome (case-insensitive)
+                                        # Prediction >= cutoff means we predicted the first outcome will win
+                                        predicted_first_outcome = bool(float(row['prediction']) >= cutoff)
+                                        
+                                        # Check if the actual outcome (determined from Price_End) matches the first outcome
+                                        # actual_outcome is determined from Price_End: if Price_End > 0.5, first outcome won
                                         actual_str = str(actual).strip().strip('"').strip("'")
                                         first_outcome_str = str(outcomes[0]).strip().strip('"').strip("'")
-                                        actual_yes = (actual_str.lower() == first_outcome_str.lower())
+                                        first_outcome_won = (actual_str.lower() == first_outcome_str.lower())
                                         
-                                        if predicted_yes == actual_yes:
+                                        # We're correct if our prediction matches reality
+                                        if predicted_first_outcome == first_outcome_won:
                                             correct += 1
+                                        
+                                        # Calculate Brier Score contribution
+                                        # Brier Score = (prediction - outcome)²
+                                        # outcome = 1 if first outcome won, 0 if second outcome won
+                                        outcome_binary = 1.0 if first_outcome_won else 0.0
+                                        prediction_value = float(row['prediction'])
+                                        brier_contribution = (prediction_value - outcome_binary) ** 2
+                                        brier_scores.append(brier_contribution)
+                                        
                                         total += 1
                                     else:
                                         errors.append(f"Row {idx}: Only {len(outcomes)} outcomes found")
@@ -529,7 +539,19 @@ try:
                             
                             if total > 0:
                                 accuracy = correct / total
-                                st.metric("Accuracy", f"{accuracy:.1%}", f"{correct}/{total} correct")
+                                # Calculate Brier Score: mean of squared differences
+                                brier_score = sum(brier_scores) / len(brier_scores) if brier_scores else None
+                                
+                                # Display metrics side by side
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.metric("Accuracy", f"{accuracy:.1%}", f"{correct}/{total} correct")
+                                with col2:
+                                    if brier_score is not None:
+                                        st.metric("Brier Score", f"{brier_score:.4f}", 
+                                                 help="Lower is better (0 = perfect, 1 = worst)")
+                                    else:
+                                        st.metric("Brier Score", "N/A")
                             else:
                                 # Show debug info
                                 with st.expander("🔍 Debug Info (click to see why accuracy couldn't be calculated)"):
@@ -629,13 +651,15 @@ try:
                         if len(outcomes) < 2:
                             return "N/A"
                         
-                        # Check if prediction matches actual
-                        predicted_yes = float(row['prediction']) >= cutoff
-                        actual = str(row['actual_outcome']).strip()
+                        # Check if prediction matches actual (actual_outcome determined from Price_End)
+                        # Prediction >= cutoff means we predicted the first outcome will win
+                        # actual_outcome is determined from Price_End: if Price_End > 0.5, first outcome won
+                        predicted_first_outcome = float(row['prediction']) >= cutoff
+                        actual = str(row['actual_outcome']).strip()  # Determined from Price_End in worker
                         first_outcome = str(outcomes[0]).strip()
-                        actual_yes = (actual.lower() == first_outcome.lower())
+                        first_outcome_won = (actual.lower() == first_outcome.lower())
                         
-                        return "✓" if (predicted_yes == actual_yes) else "✗"
+                        return "✓" if (predicted_first_outcome == first_outcome_won) else "✗"
                     
                     # Apply correctness check
                     preview_df['correct'] = preview_df.apply(is_correct, axis=1)

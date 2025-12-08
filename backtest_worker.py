@@ -32,18 +32,47 @@ def load_data_from_gcs(bucket_name, file_path):
     return pd.read_feather(local_path)
 
 def parse_outcomes(outcomes_str):
-    """Parse outcomes string to list"""
+    """Parse outcomes string to list (handles both string and list formats)"""
+    if pd.isna(outcomes_str) or outcomes_str is None:
+        return []
     if isinstance(outcomes_str, str):
-        return ast.literal_eval(outcomes_str)
-    return outcomes_str
+        try:
+            return ast.literal_eval(outcomes_str)
+        except:
+            # If parsing fails, try to split by comma
+            return [o.strip().strip('"').strip("'") for o in outcomes_str.strip('[]').split(',')]
+    if isinstance(outcomes_str, list):
+        return outcomes_str
+    # For numpy arrays or other types
+    try:
+        return list(outcomes_str)
+    except:
+        return []
+
+def generate_ticker_from_title(title):
+    """Generate a ticker-like identifier from event title"""
+    if pd.isna(title) or not title:
+        return "unknown-event"
+    # Convert to lowercase, replace spaces with hyphens, remove special chars
+    import re
+    ticker = re.sub(r'[^a-z0-9\s-]', '', str(title).lower())
+    ticker = re.sub(r'\s+', '-', ticker)
+    ticker = ticker[:100]  # Limit length
+    return ticker
 
 def construct_prompt(user_prompt_template, event_row):
     """Construct the full prompt by replacing placeholders"""
     prompt = user_prompt_template
     
+    # Generate event_ticker from event_title if not present (for backward compatibility)
+    event_ticker = event_row.get('event_ticker')
+    if pd.isna(event_ticker) or not event_ticker:
+        event_ticker = generate_ticker_from_title(event_row.get('event_title', ''))
+    
     # Replace placeholders with actual values
     replacements = {
-        '{event_ticker}': str(event_row.get('event_ticker', '')),
+        '{event_ticker}': event_ticker,  # Generated from title if not present
+        '{event_title}': str(event_row.get('event_title', '')),
         '{question}': str(event_row.get('question', '')),
         '{description}': str(event_row.get('description', '')),
         '{outcomes}': str(parse_outcomes(event_row.get('outcomes', []))),
@@ -53,13 +82,13 @@ def construct_prompt(user_prompt_template, event_row):
         '{event_volume}': str(event_row.get('event_volume', '')),
     }
     
-    # Handle outcomePrices if present (optional)
-    if '{outcomePrices}' in prompt and pd.notna(event_row.get('outcomePrices')):
-        try:
-            prices = ast.literal_eval(str(event_row.get('outcomePrices')))
-            replacements['{outcomePrices}'] = str(prices)
-        except:
-            replacements['{outcomePrices}'] = 'N/A'
+    # Handle price columns (new dataset has Price_Start, Price_Mid, Price_End)
+    if '{Price_Start}' in prompt:
+        replacements['{Price_Start}'] = str(event_row.get('Price_Start', 'N/A'))
+    if '{Price_Mid}' in prompt:
+        replacements['{Price_Mid}'] = str(event_row.get('Price_Mid', 'N/A'))
+    if '{Price_End}' in prompt:
+        replacements['{Price_End}'] = str(event_row.get('Price_End', 'N/A'))
     
     for placeholder, value in replacements.items():
         prompt = prompt.replace(placeholder, value)
@@ -86,7 +115,10 @@ def get_llm_prediction(prompt, model_id, project_id, location, max_retries=3):
             # Log the request
             print(f"📤 Sending request to {model_id} (attempt {attempt + 1}/{max_retries})")
             print(f"   Prompt length: {len(prompt)} chars")
-            print(f"   Prompt preview: {prompt[:200]}...")
+            print(f"   Full prompt:")
+            print(f"{'=' * 80}")
+            print(prompt)
+            print(f"{'=' * 80}")
             
             # Generate content
             response = model.generate_content(prompt)
@@ -95,7 +127,10 @@ def get_llm_prediction(prompt, model_id, project_id, location, max_retries=3):
             text = response.text.strip()
             print(f"📥 Received response from {model_id}")
             print(f"   Response length: {len(text)} chars")
-            print(f"   Response preview: {text[:200]}...")
+            print(f"   Full response:")
+            print(f"{'=' * 80}")
+            print(text)
+            print(f"{'=' * 80}")
             
             # Extract probability from response
             
@@ -255,25 +290,34 @@ def process_backtest(config_path):
                 # Add a small delay after each request to avoid hitting rate limits
                 await asyncio.sleep(0.2)  # 200ms delay between requests
                 
-                # Get actual outcome
+                # Get actual outcome from Price_End (new dataset)
+                # Price_End is the price of the first outcome token
+                # If Price_End > 0.5, first outcome won; if < 0.5, second outcome won
                 outcomes = parse_outcomes(row.get('outcomes', []))
-                
-                # Determine actual outcome from outcomePrices if available
-                # The outcome with price closest to 1.0 is likely the winner
                 actual_outcome = None
-                if pd.notna(row.get('outcomePrices')) and outcomes:
-                    try:
-                        prices = ast.literal_eval(str(row.get('outcomePrices')))
-                        if isinstance(prices, list) and len(prices) == len(outcomes):
-                            # Find outcome with highest price (closest to 1.0)
-                            max_price_idx = max(range(len(prices)), key=lambda i: float(prices[i]))
-                            actual_outcome = outcomes[max_price_idx] if max_price_idx < len(outcomes) else None
-                    except:
-                        pass
+                
+                # Determine winner from Price_End
+                if pd.notna(row.get('Price_End')) and len(outcomes) >= 2:
+                    price_end = float(row.get('Price_End'))
+                    if price_end > 0.5:
+                        # First outcome won
+                        actual_outcome = str(outcomes[0])
+                    else:
+                        # Second outcome won
+                        actual_outcome = str(outcomes[1]) if len(outcomes) > 1 else None
+                # Fallback to FirstOutcome if Price_End not available (shouldn't happen in new dataset)
+                elif pd.notna(row.get('FirstOutcome')):
+                    actual_outcome = str(row.get('FirstOutcome'))
+                
+                # Generate event_ticker from event_title if not present
+                event_ticker = row.get('event_ticker')
+                if pd.isna(event_ticker) or not event_ticker:
+                    event_ticker = generate_ticker_from_title(row.get('event_title', ''))
                 
                 return {
                     'event_id': row.get('id'),
-                    'event_ticker': row.get('event_ticker'),
+                    'event_ticker': event_ticker,  # Generated from title if needed
+                    'event_title': str(row.get('event_title', '')),  # Include title for reference
                     'question': row.get('question'),
                     'prediction': prediction,
                     'outcomes': outcomes,
@@ -334,7 +378,7 @@ def process_backtest(config_path):
     if not results:
         print("⚠️  WARNING: No results collected! Check for errors above.")
         # Create empty dataframe with expected columns
-        results_df = pd.DataFrame(columns=['event_id', 'event_ticker', 'question', 'prediction', 'outcomes', 'actual_outcome', 'event_endDate'])
+        results_df = pd.DataFrame(columns=['event_id', 'event_ticker', 'event_title', 'question', 'prediction', 'outcomes', 'actual_outcome', 'event_endDate'])
     else:
         # Save results
         results_df = pd.DataFrame(results)

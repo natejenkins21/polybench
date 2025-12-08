@@ -19,7 +19,7 @@ def create_test_config():
         'min_volume': 0,
         'categories': [],
         'max_events': 3,  # Small number for testing
-        'data_path': 'markets_data_v3.feather',
+        'data_path': 'markets_final_df.feather',
         'bucket_name': os.getenv('GCS_BUCKET_NAME', 'polybench-data'),
         'project_id': os.getenv('GCP_PROJECT_ID', 'coms6998llms'),
         'region': os.getenv('GCP_REGION', 'us-central1'),
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # Check if data file exists locally
-    data_path = "markets_data_v3.feather"
+    data_path = "markets_final_df.feather"
     if not os.path.exists(data_path):
         print(f"❌ Error: {data_path} not found in current directory")
         print("   Make sure you have the data file locally or update the path")

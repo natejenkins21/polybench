@@ -71,7 +71,7 @@ def submit_backtest_job(
     min_volume=0,
     categories=None,
     max_events=10,
-    data_path="markets_data_v3.feather",
+    data_path="markets_final_df.feather",
     test_name=None
 ):
     """Submit a backtest job with given parameters"""
