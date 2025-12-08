@@ -80,6 +80,7 @@ with st.expander("📋 Available Placeholders", expanded=False):
     - `{event_endDate}` - When the event resolves
     - `{category}` - Event category (if available)
     - `{event_volume}` - Trading volume
+    - `{prediction_date}` - Date that prediction takes place and is evaluted at.
     
     **Price Fields (new dataset):**
     - `{Price_Start}` - Price at event start

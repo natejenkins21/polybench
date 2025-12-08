@@ -89,7 +89,9 @@ def construct_prompt(user_prompt_template, event_row):
         replacements['{Price_Mid}'] = str(event_row.get('Price_Mid', 'N/A'))
     if '{Price_End}' in prompt:
         replacements['{Price_End}'] = str(event_row.get('Price_End', 'N/A'))
-    
+    if '{prediction_date}' in prompt:
+        replacements['{prediction_date}'] = str(event_row.get('PriceTime_Mid', 'N/A'))
+            
     for placeholder, value in replacements.items():
         prompt = prompt.replace(placeholder, value)
     
@@ -217,23 +219,23 @@ def process_backtest(config_path):
     if 'start_date' in config:
         start_dt = pd.to_datetime(config['start_date'])
         # Make timezone-naive if comparing with timezone-naive column
-        if df['event_startDate'].dtype.tz is None and start_dt.tz is not None:
+        if df['event_endDate'].dtype.tz is None and start_dt.tz is not None:
             start_dt = start_dt.tz_localize(None)
-        elif df['event_startDate'].dtype.tz is not None and start_dt.tz is None:
+        elif df['event_endDate'].dtype.tz is not None and start_dt.tz is None:
             start_dt = start_dt.tz_localize('UTC')
         before_filter = len(df)
-        df = df[df['event_startDate'] >= start_dt]
+        df = df[df['event_endDate'] >= start_dt]
         print(f"   After start_date filter ({config['start_date']}): {len(df)} events (removed {before_filter - len(df)})")
     
     if 'end_date' in config:
         end_dt = pd.to_datetime(config['end_date'])
         # Make timezone-naive if comparing with timezone-naive column
-        if df['event_startDate'].dtype.tz is None and end_dt.tz is not None:
+        if df['event_endDate'].dtype.tz is None and end_dt.tz is not None:
             end_dt = end_dt.tz_localize(None)
-        elif df['event_startDate'].dtype.tz is not None and end_dt.tz is None:
+        elif df['event_endDate'].dtype.tz is not None and end_dt.tz is None:
             end_dt = end_dt.tz_localize('UTC')
         before_filter = len(df)
-        df = df[df['event_startDate'] <= end_dt]
+        df = df[df['event_endDate'] <= end_dt]
         print(f"   After end_date filter ({config['end_date']}): {len(df)} events (removed {before_filter - len(df)})")
     
     if 'min_volume' in config:
