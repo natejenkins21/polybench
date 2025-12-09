@@ -152,7 +152,16 @@ with filter_col2:
     # Categories available in the new dataset
     # Note: Only ~0.06% of events (15 out of 24,639) have category labels
     available_categories = [
-        "US-current-affairs"
+        "Politics"
+        "Other Current Affairs"
+        "Markets",                  
+        "Pop Culture",              
+        "Business",                 
+        "Crypto",                   
+        "Other",                    
+        "Economics",                
+        "Sports",                 
+        "Other Games"         
     ]
     categories = st.multiselect(
         "Categories (optional)",
