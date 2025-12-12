@@ -152,8 +152,8 @@ with filter_col2:
     # Categories available in the new dataset
     # Note: Only ~0.06% of events (15 out of 24,639) have category labels
     available_categories = [
-        "Politics"
-        "Other Current Affairs"
+        "Politics",
+        "Other Current Affairs",
         "Markets",                  
         "Pop Culture",              
         "Business",                 
