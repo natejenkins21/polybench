@@ -104,17 +104,17 @@ gsutil ls gs://polybench-data/results/
 ```
 .
 ├── build_polymarket_dataset.ipynb  # Pull data and preprocess
-├── backtest_ui.py          # Streamlit UI
-├── api.py                  # FastAPI backend
-├── submit_job.py           # Cloud Batch job submission
-├── backtest_worker.py      # Worker script (runs in Docker)
-├── gcp_config.py           # GCP configuration
-├── Dockerfile              # Docker image for worker
-├── build_and_push.sh       # Build and push script
-├── start_api.sh            # Start API server
-├── check_job.sh            # Check job status
-├── fulldataset_openai.ipynb  # Full Dataset evaluation using gpt-4.1-mini
-└── requirements.txt        # Python dependencies
+├── backtest_ui.py                  # Streamlit UI
+├── api.py                          # FastAPI backend
+├── submit_job.py                   # Cloud Batch job submission
+├── backtest_worker.py              # Worker script (runs in Docker)
+├── gcp_config.py                   # GCP configuration
+├── Dockerfile                      # Docker image for worker
+├── build_and_push.sh               # Build and push script
+├── start_api.sh                    # Start API server
+├── check_job.sh                    # Check job status
+├── fulldataset_openai.ipynb        # Full Dataset evaluation using gpt-4.1-mini
+└── requirements.txt                # Python dependencies
 ```
 
 ## Usage
