@@ -103,6 +103,7 @@ gsutil ls gs://polybench-data/results/
 
 ```
 .
+├── build_polymarket_dataset.ipynb  # Pull data and preprocess
 ├── backtest_ui.py          # Streamlit UI
 ├── api.py                  # FastAPI backend
 ├── submit_job.py           # Cloud Batch job submission
